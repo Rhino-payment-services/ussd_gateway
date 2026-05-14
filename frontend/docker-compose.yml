@@ -1,0 +1,21 @@
+# Standalone frontend stack — build and run only the UI (nginx + static Vite build).
+# From this directory: docker compose up --build
+#
+# Point VITE_API_URL / VITE_SOCKET_URL at your deployed API (public URL), e.g.:
+#   VITE_API_URL=https://api.example.com VITE_SOCKET_URL=https://api.example.com docker compose up --build
+#
+# On Linux, if the API runs on the host machine, you may need:
+#   extra_hosts: ["host.docker.internal:host-gateway"]
+
+name: ussd-frontend
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:4000}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"

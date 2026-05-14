@@ -1,0 +1,68 @@
+# Standalone backend stack — Postgres + Redis + API (for separate deploy / local API-only).
+# From this directory: docker compose up --build
+#
+# Host ports default to 5434 and 6380 so they do not clash with a root monorepo compose
+# that may already use 5433 / 6379. Override with POSTGRES_HOST_PORT / REDIS_HOST_PORT.
+#
+# Production: point DATABASE_URL / REDIS_URL at your managed services and run only the
+# `api` service (see comments below).
+
+name: ussd-backend
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ussd
+      POSTGRES_PASSWORD: ussd_secret
+      POSTGRES_DB: ussd_gateway
+    ports:
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
+    volumes:
+      - ussd_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ussd -d ussd_gateway"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+    volumes:
+      - ussd_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://ussd:ussd_secret@postgres:5432/ussd_gateway?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-180}
+      WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-8000}
+      ALLOW_ANONYMOUS_SIMULATE: ${ALLOW_ANONYMOUS_SIMULATE:-true}
+      SIMULATE_RATE_LIMIT_WINDOW_MS: ${SIMULATE_RATE_LIMIT_WINDOW_MS:-60000}
+      SIMULATE_RATE_LIMIT_MAX: ${SIMULATE_RATE_LIMIT_MAX:-300}
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  ussd_pgdata:
+  ussd_redisdata:

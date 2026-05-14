@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  passwordHash   String
+  name           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  flows          SavedFlow[]
+  webhookProfiles WebhookProfile[]
+  requestLogs    UssdRequestLog[]
+}
+
+model SavedFlow {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  flowJson  Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+/// Saved external USSD callback configurations (RukaPay, SACCO, etc.)
+model WebhookProfile {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  slug               String
+  callbackUrl        String
+  httpMethod         String   @default("POST")
+  /// JSON object of extra headers (string values)
+  headers            Json     @default("{}")
+  authToken          String?
+  /// bearer | header
+  authScheme         String   @default("bearer")
+  authHeaderName     String   @default("Authorization")
+  /// AFRICASTALKING | MTN | AIRTEL | NEXEN | CUSTOM
+  provider           String   @default("AFRICASTALKING")
+  /// Map canonical field -> outbound field name, e.g. { "phoneNumber": "msisdn" }
+  payloadMapping     Json     @default("{}")
+  /// plain | json
+  responseType       String   @default("plain")
+  /// Dot path when responseType=json, e.g. "message"
+  responseJsonPath   String?
+  simulationDelayMs  Int      @default(0)
+  simulationRetries Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  logs UssdRequestLog[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+model UssdRequestLog {
+  id                String   @id @default(cuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  profileId         String?
+  profile           WebhookProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  sessionId         String
+  phoneNumber       String
+  serviceCode       String
+  text              String   @default("")
+  provider          String   @default("AFRICASTALKING")
+  callbackUrl       String?
+  response          String   @default("")
+  source            String   @default("forward")
+  success           Boolean  @default(true)
+  errorMessage      String?
+  httpStatus        Int?
+  latencyMs         Int?
+  /// Webhook forward attempt count (includes retries)
+  attempts          Int      @default(1)
+  outgoingPayload   Json?
+  outgoingHeaders   Json?
+  createdAt         DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([profileId])
+  @@index([createdAt])
+  @@index([success])
+}
