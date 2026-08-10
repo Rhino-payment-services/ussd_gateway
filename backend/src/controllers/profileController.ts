@@ -63,7 +63,7 @@ export async function createProfile(req: Request, res: Response) {
       authToken: body.authToken ?? null,
       authScheme: body.authScheme ?? "bearer",
       authHeaderName: body.authHeaderName ?? "Authorization",
-      provider: body.provider ?? "AFRICASTALKING",
+      provider: body.provider ?? "DIALFORGE",
       payloadMapping: (body.payloadMapping ?? {}) as object,
       responseType: body.responseType ?? "plain",
       responseJsonPath: body.responseJsonPath ?? null,

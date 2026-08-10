@@ -8,24 +8,26 @@ type ThemeState = {
   toggle: () => void;
 };
 
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.toggle("dark", theme === "dark");
+  root.classList.toggle("light", theme === "light");
+}
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       theme: "dark",
       toggle: () => {
         const next = get().theme === "dark" ? "light" : "dark";
-        document.documentElement.classList.toggle("light", next === "light");
+        applyTheme(next);
         set({ theme: next });
       },
     }),
     {
       name: "ussd-theme",
       onRehydrateStorage: () => (state) => {
-        if (state?.theme === "light") {
-          document.documentElement.classList.add("light");
-        } else {
-          document.documentElement.classList.remove("light");
-        }
+        applyTheme(state?.theme === "light" ? "light" : "dark");
       },
     },
   ),

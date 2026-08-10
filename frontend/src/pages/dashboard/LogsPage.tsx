@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import { useSocketLog } from "../../hooks/useSocketLog";
+import { PageHeader } from "../../components/ui/page-header";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Panel, PanelBody, PanelHeader, PanelTitle } from "../../components/ui/panel";
+import { EmptyState } from "../../components/ui/empty-state";
+import { cn } from "../../lib/utils";
 
 type LogRow = {
   id: string;
@@ -22,6 +28,8 @@ export function LogsPage() {
   const [items, setItems] = useState<LogRow[]>([]);
   const [page, setPage] = useState(0);
   const [failedOnly, setFailedOnly] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showLive, setShowLive] = useState(false);
   const live = useSocketLog();
 
   useEffect(() => {
@@ -35,65 +43,97 @@ export function LogsPage() {
   }, [page, failedOnly]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Request history</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-3 py-1 text-sm"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
+    <div>
+      <PageHeader
+        title="Session logs"
+        description="Request history for your account."
+        actions={
+          <>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} />
+              Failed only
+            </label>
+            <Button variant="outline" size="sm" type="button" onClick={() => setShowLive((v) => !v)}>
+              {showLive ? "Hide live" : "Live feed"}
+            </Button>
+          </>
+        }
+      />
+
+      <div className={cn("grid gap-4", showLive && "lg:grid-cols-[1fr_320px]")}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" type="button" onClick={() => setPage((p) => Math.max(0, p - 1))}>
               Prev
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-border px-3 py-1 text-sm"
-              onClick={() => setPage((p) => p + 1)}
-            >
+            </Button>
+            <Button variant="outline" size="sm" type="button" onClick={() => setPage((p) => p + 1)}>
               Next
-            </button>
-            <span className="text-sm text-muted">Page {page}</span>
+            </Button>
+            <span className="text-xs text-muted-foreground">Page {page}</span>
           </div>
-          <label className="flex items-center gap-2 text-sm text-muted">
-            <input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} />
-            Failed only
-          </label>
+
+          {items.length === 0 ? (
+            <EmptyState title="No logs" description="Simulate traffic while logged in to populate history." />
+          ) : (
+            <div className="space-y-2">
+              {items.map((row) => (
+                <Panel key={row.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left text-sm hover:bg-sidebar-accent/30"
+                    onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={row.success ? "success" : "danger"}>{row.success ? "OK" : "FAIL"}</Badge>
+                        <span className="text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {row.latencyMs ?? "—"}ms · HTTP {row.httpStatus ?? "—"}
+                        </span>
+                      </div>
+                      <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                        {row.sessionId.slice(0, 8)}… · {row.phoneNumber} · {row.serviceCode}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-muted-foreground">{expanded === row.id ? "−" : "+"}</span>
+                  </button>
+                  {expanded === row.id ? (
+                    <PanelBody className="space-y-2 border-t border-border-subtle pt-3 text-xs">
+                      <div className="break-all text-muted-foreground">{row.callbackUrl ?? "—"}</div>
+                      {row.errorMessage ? <p className="text-danger">{row.errorMessage}</p> : null}
+                      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-2 font-mono">
+                        {row.response || "(empty)"}
+                      </pre>
+                    </PanelBody>
+                  ) : null}
+                </Panel>
+              ))}
+            </div>
+          )}
         </div>
-        <ul className="space-y-2 text-sm">
-          {items.map((row) => (
-            <li key={row.id} className="rounded-xl border border-border bg-background/60 p-3">
-              <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
-                <span>{new Date(row.createdAt).toLocaleString()}</span>
-                <span>
-                  {row.success ? "OK" : "FAIL"} · {row.latencyMs ?? "—"}ms · HTTP {row.httpStatus ?? "—"}
-                </span>
-              </div>
-              <div className="mt-1 font-mono text-xs">sess {row.sessionId.slice(0, 8)}…</div>
-              <div className="mt-1 break-all text-xs text-muted">{row.callbackUrl ?? "—"}</div>
-              <div className="mt-1 text-xs">
-                {row.serviceCode} · {row.phoneNumber} · path <code>{row.text || "∅"}</code>
-              </div>
-              {row.errorMessage && <p className="mt-1 text-xs text-danger">{row.errorMessage}</p>}
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-card p-2 text-xs">
-                {row.response || "(empty)"}
-              </pre>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Realtime (Socket.IO)</h2>
-        <ul className="max-h-[520px] space-y-2 overflow-auto text-xs">
-          {live.map((e, i) => (
-            <li key={`${e.ts}-${i}`} className="rounded-lg border border-border bg-background/60 p-2">
-              <div className="text-muted">{e.ts}</div>
-              <div className="font-semibold">{e.event}</div>
-              <pre className="mt-1 overflow-auto whitespace-pre-wrap">{JSON.stringify(e.payload, null, 2)}</pre>
-            </li>
-          ))}
-        </ul>
+
+        {showLive ? (
+          <Panel className="h-fit max-h-[640px] overflow-hidden">
+            <PanelHeader>
+              <PanelTitle>Realtime</PanelTitle>
+            </PanelHeader>
+            <PanelBody className="max-h-[580px] space-y-2 overflow-y-auto p-2">
+              {live.length === 0 ? (
+                <p className="p-2 text-xs text-muted-foreground">Waiting for Socket.IO events…</p>
+              ) : (
+                live.map((e, i) => (
+                  <div key={`${e.ts}-${i}`} className="rounded-lg border border-border-subtle p-2 text-xs">
+                    <div className="text-muted-foreground">{e.ts.slice(11, 19)}</div>
+                    <div className="font-medium">{e.event}</div>
+                    <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[10px] text-muted-foreground">
+                      {JSON.stringify(e.payload, null, 2)}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </PanelBody>
+          </Panel>
+        ) : null}
       </div>
     </div>
   );

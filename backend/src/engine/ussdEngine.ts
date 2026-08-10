@@ -8,7 +8,7 @@ export const STARTER_FLOW: FlowDefinition = {
     "main-menu": {
       id: "main-menu",
       type: "menu",
-      message: "Welcome\n1. Balance\n2. Send Money\n3. Exit",
+      message: "Welcome",
       options: [
         { key: "1", label: "Balance", next: "balance" },
         { key: "2", label: "Send Money", next: "send-money" },

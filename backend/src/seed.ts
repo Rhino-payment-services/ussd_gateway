@@ -22,7 +22,7 @@ async function main() {
       httpMethod: "POST",
       headers: {},
       authScheme: "none",
-      provider: "AFRICASTALKING",
+      provider: "DIALFORGE",
       payloadMapping: {},
       responseType: "plain",
     },

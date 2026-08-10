@@ -1,13 +1,15 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import { requireAuth, optionalAuth } from "../middleware/authMiddleware.js";
 import { listActiveSessions } from "../controllers/sessionController.js";
 import { listLogs } from "../controllers/logsController.js";
 import {
   listFlows,
+  getFlow,
   createFlow,
   updateFlow,
   deleteFlow,
   getStarter,
+  runFlow,
 } from "../controllers/flowController.js";
 import {
   listProfiles,
@@ -33,7 +35,9 @@ dashboardRouter.get("/metrics/export", requireAuth, exportMetricsCsv);
 dashboardRouter.get("/metrics/health", requireAuth, getMetricsHealth);
 
 dashboardRouter.get("/flows/starter", getStarter);
+dashboardRouter.post("/flows/run", optionalAuth, runFlow);
 dashboardRouter.get("/flows", requireAuth, listFlows);
+dashboardRouter.get("/flows/:id", requireAuth, getFlow);
 dashboardRouter.post("/flows", requireAuth, createFlow);
 dashboardRouter.put("/flows/:id", requireAuth, updateFlow);
 dashboardRouter.delete("/flows/:id", requireAuth, deleteFlow);

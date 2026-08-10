@@ -5,10 +5,17 @@ import { useAuthStore } from "../../store/authStore";
 import { useMetricsFilters } from "../../store/metricsFiltersStore";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { cn } from "../../lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
+import { PageHeader } from "../../components/ui/page-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Panel, PanelBody, PanelHeader, PanelTitle } from "../../components/ui/panel";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Select } from "../../components/ui/native-select";
+import { Table, THead, TBody, TR, TH, TD } from "../../components/ui/table";
+import { EmptyState } from "../../components/ui/empty-state";
 import type { ChartsBundle } from "./metrics/MetricsCharts";
 
 const MetricsCharts = lazy(() => import("./metrics/MetricsCharts"));
@@ -85,33 +92,23 @@ function StatCard({
   value,
   sub,
   trend,
-  gradient,
-  icon,
 }: {
   title: string;
   value: ReactNode;
   sub?: string;
   trend?: number;
-  gradient: string;
-  icon: ReactNode;
 }) {
   return (
-    <Card
-      className={cn(
-        "group overflow-hidden border-border/80 bg-gradient-to-br shadow-lg transition-transform hover:-translate-y-0.5",
-        gradient,
-      )}
-    >
-      <CardContent className="relative p-5">
-        <div className="absolute right-3 top-3 opacity-25 transition-opacity group-hover:opacity-40">{icon}</div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{value}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {sub && <span className="text-xs text-muted">{sub}</span>}
-          {trend !== undefined && <Trend v={trend} />}
+    <Panel>
+      <PanelBody className="p-4">
+        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        <p className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-foreground">{value}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {sub ? <span className="text-xs text-muted-foreground">{sub}</span> : null}
+          {trend !== undefined ? <Trend v={trend} /> : null}
         </div>
-      </CardContent>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }
 
@@ -136,6 +133,7 @@ export function MetricsPage() {
     null,
   );
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [tab, setTab] = useState("overview");
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
@@ -297,470 +295,348 @@ export function MetricsPage() {
 
   return (
     <div className="metrics-dashboard print:px-4">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Metrics &amp; Analytics</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted">
-            Live and historical USSD simulations from your stored request logs. Data updates in real time when you run
-            simulations while logged in.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" type="button" onClick={() => window.print()}>
-            Print report
-          </Button>
-          <Button variant="secondary" type="button" onClick={() => void exportCsv()}>
-            Export CSV
-          </Button>
-          <Button type="button" onClick={() => void loadBundle()}>
-            Refresh
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Metrics"
+        description="USSD simulation analytics from your request logs."
+        actions={
+          <>
+            <Button variant="outline" size="sm" type="button" onClick={() => window.print()}>
+              Print
+            </Button>
+            <Button variant="secondary" size="sm" type="button" onClick={() => void exportCsv()}>
+              Export CSV
+            </Button>
+            <Button size="sm" type="button" onClick={() => void loadBundle()}>
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
-      <Card className="mb-6 border-border/80 bg-card/60 p-4">
-        <div className="flex flex-wrap items-end gap-3">
+      <Panel className="mb-4">
+        <PanelBody className="flex flex-wrap items-end gap-3 p-3">
           <div>
-            <label className="text-xs font-medium text-muted">Range</label>
-            <select
-              className="mt-1 block rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            <Label>Range</Label>
+            <Select
               value={preset}
               onChange={(e) => setPreset(e.target.value as typeof preset)}
+              className="w-40"
             >
               <option value="today">Today</option>
               <option value="24h">Last 24 hours</option>
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
               <option value="custom">Custom</option>
-            </select>
+            </Select>
           </div>
-          {preset === "custom" && (
+          {preset === "custom" ? (
             <>
               <div>
-                <label className="text-xs font-medium text-muted">From</label>
-                <input
-                  type="datetime-local"
-                  className="mt-1 block rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                />
+                <Label>From</Label>
+                <Input type="datetime-local" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted">To</label>
-                <input
-                  type="datetime-local"
-                  className="mt-1 block rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                />
+                <Label>To</Label>
+                <Input type="datetime-local" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
               </div>
             </>
-          )}
+          ) : null}
           <div>
-            <label className="text-xs font-medium text-muted">Provider</label>
-            <input
-              className="mt-1 block w-44 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            <Label>Provider</Label>
+            <Input
+              className="w-40"
               placeholder="All"
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
             />
           </div>
-        </div>
-      </Card>
+        </PanelBody>
+      </Panel>
 
-      {loading && !bundle ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
-          ))}
-        </div>
-      ) : overview ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            title="Total sessions"
-            value={<AnimatedNumber value={overview.totalSessions} />}
-            trend={overview.trends.sessions}
-            gradient="from-emerald-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M3 7h18M5 7V5a2 2 0 012-2h10a2 2 0 012 2v2M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Active sessions"
-            value={<AnimatedNumber value={overview.activeSessions} />}
-            sub="CON within 10m"
-            gradient="from-sky-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Success rate"
-            value={
-              <>
-                <AnimatedNumber value={overview.successRate} decimals={1} />%
-              </>
-            }
-            trend={overview.trends.successRate}
-            gradient="from-violet-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Failed requests"
-            value={<AnimatedNumber value={overview.failedSessions} />}
-            sub="HTTP / parse failures"
-            gradient="from-orange-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Avg session duration"
-            value={
-              <>
-                <AnimatedNumber value={overview.avgSessionDurationSec} />s
-              </>
-            }
-            gradient="from-teal-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Avg response time"
-            value={
-              <>
-                <AnimatedNumber value={overview.avgResponseMs} /> ms
-              </>
-            }
-            sub={`p95 ${Math.round(overview.p95ResponseMs)} ms`}
-            trend={overview.trends.totalRequests}
-            gradient="from-fuchsia-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M7 12l3 3 7-7" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Peak concurrent"
-            value={<AnimatedNumber value={overview.peakConcurrentUsers} />}
-            sub="Max distinct sessions / minute"
-            gradient="from-amber-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            }
-          />
-          <StatCard
-            title="Simulations today"
-            value={<AnimatedNumber value={overview.simulationsToday} />}
-            sub="Requests since midnight"
-            gradient="from-cyan-500/15 via-card to-card"
-            icon={
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h10" />
-              </svg>
-            }
-          />
-        </div>
-      ) : null}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="health">Health & live</TabsTrigger>
+        </TabsList>
 
-      {empty && (
-        <Card className="mb-8 border-dashed border-border bg-card/40 p-10 text-center">
-          <p className="text-lg font-medium text-foreground">No metrics yet</p>
-          <p className="mt-2 text-sm text-muted">
-            Run USSD simulations while signed in (saved profiles) to populate this dashboard. Anonymous simulator traffic
-            is not tied to your account.
-          </p>
-        </Card>
-      )}
+        <TabsContent value="overview" className="space-y-6">
+          {loading && !bundle ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-xl" />
+              ))}
+            </div>
+          ) : overview ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <StatCard
+                title="Total sessions"
+                value={<AnimatedNumber value={overview.totalSessions} />}
+                trend={overview.trends.sessions}
+              />
+              <StatCard title="Active sessions" value={<AnimatedNumber value={overview.activeSessions} />} sub="CON within 10m" />
+              <StatCard
+                title="Success rate"
+                value={
+                  <>
+                    <AnimatedNumber value={overview.successRate} decimals={1} />%
+                  </>
+                }
+                trend={overview.trends.successRate}
+              />
+              <StatCard title="Failed requests" value={<AnimatedNumber value={overview.failedSessions} />} />
+              <StatCard
+                title="Avg response"
+                value={
+                  <>
+                    <AnimatedNumber value={overview.avgResponseMs} /> ms
+                  </>
+                }
+                sub={`p95 ${Math.round(overview.p95ResponseMs)} ms`}
+              />
+              <StatCard
+                title="Simulations today"
+                value={<AnimatedNumber value={overview.simulationsToday} />}
+                sub={`${overview.avgSessionDurationSec}s avg duration`}
+              />
+            </div>
+          ) : null}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_320px]">
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Charts</h2>
-          <Suspense
-            fallback={
-              <div className="grid gap-4 xl:grid-cols-2">
-                <Skeleton className="h-72 rounded-2xl" />
-                <Skeleton className="h-72 rounded-2xl" />
-              </div>
-            }
-          >
-            {bundle?.charts && <MetricsCharts charts={bundle.charts} />}
+          {empty ? (
+            <EmptyState
+              title="No metrics yet"
+              description="Run USSD simulations while signed in to populate this dashboard."
+            />
+          ) : null}
+
+          <Suspense fallback={<Skeleton className="h-72 rounded-xl" />}>
+            {bundle?.charts ? <MetricsCharts charts={bundle.charts} /> : null}
           </Suspense>
 
-          <h2 className="mb-4 mt-10 text-lg font-semibold text-foreground">Smart insights</h2>
-          {bundle?.insights && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-transparent">
-                <CardHeader>
-                  <CardTitle>Traffic pattern</CardTitle>
-                </CardHeader>
-                <CardContent>
+          {bundle?.insights ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Panel>
+                <PanelHeader>
+                  <PanelTitle>Peak hour</PanelTitle>
+                </PanelHeader>
+                <PanelBody className="text-sm">
                   {bundle.insights.peakTrafficHour ? (
-                    <p className="text-sm text-foreground">
-                      Peak hour <strong>{bundle.insights.peakTrafficHour.hour}:00</strong> with{" "}
-                      <strong>{bundle.insights.peakTrafficHour.requests}</strong> requests.
+                    <p>
+                      {bundle.insights.peakTrafficHour.hour}:00 · {bundle.insights.peakTrafficHour.requests} req
                     </p>
                   ) : (
-                    <p className="text-sm text-muted">Not enough data.</p>
+                    <p className="text-muted-foreground">Not enough data</p>
                   )}
-                </CardContent>
-              </Card>
-              <Card className="border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-transparent">
-                <CardHeader>
-                  <CardTitle>Top provider</CardTitle>
-                </CardHeader>
-                <CardContent>
+                </PanelBody>
+              </Panel>
+              <Panel>
+                <PanelHeader>
+                  <PanelTitle>Top provider</PanelTitle>
+                </PanelHeader>
+                <PanelBody className="text-sm">
                   {bundle.insights.mostUsedProvider ? (
-                    <p className="text-sm text-foreground">
+                    <p>
                       <Badge className="mr-2">{bundle.insights.mostUsedProvider.provider}</Badge>
-                      {bundle.insights.mostUsedProvider.count} requests
+                      {bundle.insights.mostUsedProvider.count}
                     </p>
                   ) : (
-                    <p className="text-sm text-muted">Not enough data.</p>
+                    <p className="text-muted-foreground">Not enough data</p>
                   )}
-                </CardContent>
-              </Card>
-              <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-transparent">
-                <CardHeader>
-                  <CardTitle>Slowest webhook</CardTitle>
-                </CardHeader>
-                <CardContent>
+                </PanelBody>
+              </Panel>
+              <Panel>
+                <PanelHeader>
+                  <PanelTitle>Slowest webhook</PanelTitle>
+                </PanelHeader>
+                <PanelBody className="text-sm">
                   {bundle.insights.slowestWebhook ? (
-                    <p className="text-sm text-foreground">
-                      <span className="break-all">{bundle.insights.slowestWebhook.url}</span>
-                      <br />
-                      <span className="text-muted">Avg {Math.round(bundle.insights.slowestWebhook.avgMs)} ms</span>
+                    <p className="truncate" title={bundle.insights.slowestWebhook.url}>
+                      {Math.round(bundle.insights.slowestWebhook.avgMs)} ms
                     </p>
                   ) : (
-                    <p className="text-sm text-muted">Not enough data.</p>
+                    <p className="text-muted-foreground">Not enough data</p>
                   )}
-                </CardContent>
-              </Card>
-              <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-transparent">
-                <CardHeader>
-                  <CardTitle>Completion &amp; failures</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-foreground">
-                    Session completion rate (END):{" "}
-                    <strong>{bundle.insights.completionRatePct.toFixed(1)}%</strong>
-                  </p>
-                  {bundle.insights.topFailureReasons.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-xs text-muted">
-                      {bundle.insights.topFailureReasons.map((f) => (
-                        <li key={f.message} className="truncate">
-                          {f.message} · {f.count}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
+                </PanelBody>
+              </Panel>
+              <Panel>
+                <PanelHeader>
+                  <PanelTitle>Completion</PanelTitle>
+                </PanelHeader>
+                <PanelBody className="text-sm">
+                  <p>{bundle.insights.completionRatePct.toFixed(1)}% END</p>
+                </PanelBody>
+              </Panel>
             </div>
-          )}
+          ) : null}
+        </TabsContent>
 
-          <h2 className="mb-4 mt-10 text-lg font-semibold text-foreground">Session analytics</h2>
-          <Card>
-            <CardContent className="space-y-4 pt-5">
-              <div className="flex flex-wrap gap-3">
-                <input
-                  className="min-w-[200px] flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  placeholder="Search session ID or phone…"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(0);
-                  }}
-                />
-                <select
-                  className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                  value={tableStatus}
-                  onChange={(e) => {
-                    setTableStatus(e.target.value as typeof tableStatus);
-                    setPage(0);
-                  }}
-                >
-                  <option value="all">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full min-w-[720px] text-left text-sm">
-                  <thead className="bg-card/80 text-xs uppercase text-muted">
-                    <tr>
-                      <th className="px-3 py-2">Session</th>
-                      <th className="px-3 py-2">Provider</th>
-                      <th className="px-3 py-2">Phone</th>
-                      <th className="cursor-pointer px-3 py-2" onClick={() => toggleSort("duration")}>
-                        Duration {sort === "duration" ? (dir === "asc" ? "↑" : "↓") : ""}
-                      </th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="cursor-pointer px-3 py-2" onClick={() => toggleSort("avgLatency")}>
-                        Avg ms {sort === "avgLatency" ? (dir === "asc" ? "↑" : "↓") : ""}
-                      </th>
-                      <th className="px-3 py-2">Last ms</th>
-                      <th className="cursor-pointer px-3 py-2" onClick={() => toggleSort("retries")}>
-                        Retries {sort === "retries" ? (dir === "asc" ? "↑" : "↓") : ""}
-                      </th>
-                      <th className="cursor-pointer px-3 py-2" onClick={() => toggleSort("createdAt")}>
-                        Started {sort === "createdAt" ? (dir === "asc" ? "↑" : "↓") : ""}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessLoading ? (
-                      <tr>
-                        <td colSpan={9} className="px-3 py-8 text-center text-muted">
-                          Loading…
-                        </td>
-                      </tr>
-                    ) : sessions && sessions.items.length > 0 ? (
-                      sessions.items.map((r) => (
-                        <tr key={r.sessionId} className="border-t border-border/60 hover:bg-card/50">
-                          <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs">{r.sessionId}</td>
-                          <td className="px-3 py-2">{r.provider}</td>
-                          <td className="px-3 py-2">{r.phoneNumber}</td>
-                          <td className="px-3 py-2">{r.durationSec != null ? `${r.durationSec}s` : "—"}</td>
-                          <td className="px-3 py-2">
-                            <Badge
-                              className={cn(
-                                r.status === "failed" && "border-danger/40 text-danger",
-                                r.status === "completed" && "border-emerald-500/40 text-emerald-400",
-                                r.status === "active" && "border-sky-500/40 text-sky-400",
-                              )}
-                            >
-                              {r.status}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2">{r.avgLatencyMs ?? "—"}</td>
-                          <td className="px-3 py-2">{r.responseTimeMs ?? "—"}</td>
-                          <td className="px-3 py-2">{r.retries}</td>
-                          <td className="px-3 py-2 text-xs text-muted">{new Date(r.createdAt).toLocaleString()}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={9} className="px-3 py-8 text-center text-muted">
-                          No sessions in this range.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {sessions && sessions.total > take && (
-                <div className="flex items-center justify-between text-sm text-muted">
-                  <span>
-                    Page {page + 1} of {Math.ceil(sessions.total / take) || 1}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      disabled={(page + 1) * take >= sessions.total}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+        <TabsContent value="sessions" className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Input
+              className="min-w-[200px] max-w-sm flex-1"
+              placeholder="Search session ID or phone…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+            />
+            <Select
+              className="w-40"
+              value={tableStatus}
+              onChange={(e) => {
+                setTableStatus(e.target.value as typeof tableStatus);
+                setPage(0);
+              }}
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </Select>
+          </div>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Session</TH>
+                <TH>Provider</TH>
+                <TH>Phone</TH>
+                <TH className="cursor-pointer" onClick={() => toggleSort("duration")}>
+                  Duration {sort === "duration" ? (dir === "asc" ? "↑" : "↓") : ""}
+                </TH>
+                <TH>Status</TH>
+                <TH className="cursor-pointer" onClick={() => toggleSort("avgLatency")}>
+                  Avg ms {sort === "avgLatency" ? (dir === "asc" ? "↑" : "↓") : ""}
+                </TH>
+                <TH className="cursor-pointer" onClick={() => toggleSort("retries")}>
+                  Retries {sort === "retries" ? (dir === "asc" ? "↑" : "↓") : ""}
+                </TH>
+                <TH className="cursor-pointer" onClick={() => toggleSort("createdAt")}>
+                  Started {sort === "createdAt" ? (dir === "asc" ? "↑" : "↓") : ""}
+                </TH>
+              </TR>
+            </THead>
+            <TBody>
+              {sessLoading ? (
+                <TR>
+                  <TD colSpan={8} className="text-center text-muted-foreground">
+                    Loading…
+                  </TD>
+                </TR>
+              ) : sessions && sessions.items.length > 0 ? (
+                sessions.items.map((r) => (
+                  <TR key={r.sessionId}>
+                    <TD className="max-w-[120px] truncate font-mono text-xs">{r.sessionId}</TD>
+                    <TD>{r.provider}</TD>
+                    <TD>{r.phoneNumber}</TD>
+                    <TD>{r.durationSec != null ? `${r.durationSec}s` : "—"}</TD>
+                    <TD>
+                      <Badge
+                        variant={
+                          r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "accent"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                    </TD>
+                    <TD>{r.avgLatencyMs ?? "—"}</TD>
+                    <TD>{r.retries}</TD>
+                    <TD className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</TD>
+                  </TR>
+                ))
+              ) : (
+                <TR>
+                  <TD colSpan={8} className="text-center text-muted-foreground">
+                    No sessions in this range.
+                  </TD>
+                </TR>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </TBody>
+          </Table>
+          {sessions && sessions.total > take ? (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Page {page + 1} of {Math.ceil(sessions.total / take) || 1}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={(page + 1) * take >= sessions.total}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </TabsContent>
 
-        <div className="space-y-6">
-          <Card className="border-border/80 bg-gradient-to-b from-card to-background">
-            <CardHeader>
-              <CardTitle>Traffic &amp; health</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
+        <TabsContent value="health" className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <Panel>
+            <PanelHeader>
+              <PanelTitle>Traffic & health</PanelTitle>
+            </PanelHeader>
+            <PanelBody className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted">Redis</span>
-                <Badge className={health?.redis ? "border-emerald-500/40 text-emerald-400" : "text-danger"}>
-                  {health?.redis ? "OK" : "Down"}
-                </Badge>
+                <span className="text-muted-foreground">Redis</span>
+                <Badge variant={health?.redis ? "success" : "danger"}>{health?.redis ? "OK" : "Down"}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">PostgreSQL</span>
-                <Badge className={health?.postgres ? "border-emerald-500/40 text-emerald-400" : "text-danger"}>
-                  {health?.postgres ? "OK" : "Down"}
-                </Badge>
+                <span className="text-muted-foreground">PostgreSQL</span>
+                <Badge variant={health?.postgres ? "success" : "danger"}>{health?.postgres ? "OK" : "Down"}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Your requests / min</span>
-                <span className="font-mono text-foreground">{overview?.requestsPerMinute.toFixed(2) ?? "—"}</span>
+                <span className="text-muted-foreground">Requests / min</span>
+                <span className="font-mono">{overview?.requestsPerMinute.toFixed(2) ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Retries (range)</span>
-                <span className="font-mono text-foreground">{overview?.totalRetries ?? "—"}</span>
+                <span className="text-muted-foreground">Retries</span>
+                <span className="font-mono">{overview?.totalRetries ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Timeouts (range)</span>
-                <span className="font-mono text-foreground">{overview?.timeouts ?? "—"}</span>
+                <span className="text-muted-foreground">Timeouts</span>
+                <span className="font-mono">{overview?.timeouts ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Live (last minute)</span>
-                <span className="font-mono text-foreground">{health?.liveRequestsLastMinute ?? "—"}</span>
+                <span className="text-muted-foreground">Live (last minute)</span>
+                <span className="font-mono">{health?.liveRequestsLastMinute ?? "—"}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Live activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+            </PanelBody>
+          </Panel>
+          <Panel>
+            <PanelHeader>
+              <PanelTitle>Live activity</PanelTitle>
+            </PanelHeader>
+            <PanelBody>
+              <div className="max-h-[420px] space-y-2 overflow-y-auto">
                 {activity.length === 0 ? (
-                  <p className="text-sm text-muted">Waiting for simulation events…</p>
+                  <p className="text-sm text-muted-foreground">Waiting for simulation events…</p>
                 ) : (
                   activity.map((a) => (
                     <div
                       key={a.id}
                       className={cn(
-                        "rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs transition",
+                        "rounded-lg border border-border-subtle px-3 py-2 text-xs",
                         a.tone === "err" && "border-danger/30 bg-danger/5",
-                        a.tone === "warn" && "border-orange-500/20 bg-orange-500/5",
+                        a.tone === "warn" && "border-warning/30 bg-warning/5",
                       )}
                     >
                       <div className="font-medium text-foreground">{a.title}</div>
-                      <div className="mt-0.5 text-muted">{a.detail}</div>
-                      <div className="mt-1 text-[10px] text-muted/80">{new Date(a.ts).toLocaleTimeString()}</div>
+                      <div className="mt-0.5 text-muted-foreground">{a.detail}</div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">{new Date(a.ts).toLocaleTimeString()}</div>
                     </div>
                   ))
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <p className="mt-10 text-center text-[11px] text-muted">
-        PDF export: use <strong>Print report</strong> and choose &quot;Save as PDF&quot; in your browser. Metrics are
-        computed from <code className="rounded bg-card px-1">UssdRequestLog</code> for your account.
-      </p>
+            </PanelBody>
+          </Panel>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

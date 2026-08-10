@@ -35,7 +35,7 @@ export default function App() {
             </Private>
           }
         >
-          <Route index element={<Navigate to="sessions" replace />} />
+          <Route index element={<Navigate to="metrics" replace />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="api-test" element={<ApiTestPage />} />

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
+import { PageHeader } from "../../components/ui/page-header";
+import { Table, THead, TBody, TR, TH, TD } from "../../components/ui/table";
+import { Badge } from "../../components/ui/badge";
+import { EmptyState } from "../../components/ui/empty-state";
 
 type SessionState = {
   sessionId: string;
@@ -31,40 +35,39 @@ export function SessionsPage() {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Active Redis sessions</h2>
-      {error && <p className="text-sm text-danger">{error}</p>}
-      <div className="overflow-auto rounded-xl border border-border">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-card text-muted">
-            <tr>
-              <th className="px-3 py-2">Session</th>
-              <th className="px-3 py-2">Phone</th>
-              <th className="px-3 py-2">Code</th>
-              <th className="px-3 py-2">Step</th>
-              <th className="px-3 py-2">Path</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div>
+      <PageHeader
+        title="Active sessions"
+        description="Live Redis sessions. Refreshes every 5 seconds."
+        actions={<Badge variant="accent">{sessions.length} active</Badge>}
+      />
+      {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
+      {sessions.length === 0 && !error ? (
+        <EmptyState title="No active sessions" description="Open the simulator to create one." />
+      ) : (
+        <Table>
+          <THead>
+            <TR>
+              <TH>Session</TH>
+              <TH>Phone</TH>
+              <TH>Code</TH>
+              <TH>Step</TH>
+              <TH>Path</TH>
+            </TR>
+          </THead>
+          <TBody>
             {sessions.map((s) => (
-              <tr key={s.sessionId} className="border-t border-border">
-                <td className="px-3 py-2 font-mono text-xs">{s.sessionId.slice(0, 8)}…</td>
-                <td className="px-3 py-2">{s.phoneNumber}</td>
-                <td className="px-3 py-2">{s.serviceCode}</td>
-                <td className="px-3 py-2">{s.currentStep}</td>
-                <td className="px-3 py-2 font-mono text-xs">{s.previousInputs.join("*") || "—"}</td>
-              </tr>
+              <TR key={s.sessionId}>
+                <TD className="font-mono text-xs">{s.sessionId.slice(0, 8)}…</TD>
+                <TD>{s.phoneNumber}</TD>
+                <TD>{s.serviceCode}</TD>
+                <TD>{s.currentStep}</TD>
+                <TD className="font-mono text-xs">{s.previousInputs.join("*") || "—"}</TD>
+              </TR>
             ))}
-            {sessions.length === 0 && (
-              <tr>
-                <td className="px-3 py-6 text-muted" colSpan={5}>
-                  No active sessions. Open the simulator to create one.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      )}
     </div>
   );
 }

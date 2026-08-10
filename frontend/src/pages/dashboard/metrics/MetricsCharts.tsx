@@ -61,18 +61,18 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Session activity</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Requests & sessions over time</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Session activity</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Requests & sessions over time</p>
         <div className="h-[280px] w-full min-w-0">
           {activity.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No data in this range.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No data in this range.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={activity} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={36} />
+                <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={36} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -89,12 +89,12 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Live traffic</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Requests per minute (last hour)</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Live traffic</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Requests per minute (last hour)</p>
         <div className="h-[280px] w-full min-w-0">
           {rpm.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No traffic in the last hour.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No traffic in the last hour.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={rpm} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -105,8 +105,8 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 9 }} interval={4} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={32} />
+                <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 9 }} interval={4} />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={32} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -121,12 +121,12 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Success mix</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Success vs failed requests</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Success mix</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Success vs failed requests</p>
         <div className="h-[260px] w-full min-w-0">
           {charts.successVsFail.every((x) => x.value === 0) ? (
-            <p className="py-20 text-center text-sm text-muted">No requests yet.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No requests yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -152,18 +152,18 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Providers</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Usage distribution</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Providers</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Usage distribution</p>
         <div className="h-[260px] w-full min-w-0">
           {charts.providers.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No provider data.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No provider data.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.providers} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} horizontal={false} />
-                <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                <YAxis type="category" dataKey="provider" width={100} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                <XAxis type="number" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
+                <YAxis type="category" dataKey="provider" width={100} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -182,18 +182,18 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Latency</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Average response time trend</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Latency</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Average response time trend</p>
         <div className="h-[260px] w-full min-w-0">
           {latency.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No latency samples.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No latency samples.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={latency} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={40} />
+                <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={40} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -209,18 +209,18 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Volume</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Daily simulation volume</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Volume</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Daily simulation volume</p>
         <div className="h-[260px] w-full min-w-0">
           {daily.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No daily aggregates.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No daily aggregates.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
-                <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={36} />
+                <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={36} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -235,12 +235,12 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Errors</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Error rate trend (%)</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Errors</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Error rate trend (%)</p>
         <div className="h-[260px] w-full min-w-0">
           {errs.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No error buckets.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No error buckets.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={errs} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -251,8 +251,8 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={36} domain={[0, "auto"]} />
+                <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={36} domain={[0, "auto"]} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -268,18 +268,18 @@ export default function MetricsCharts({ charts }: { charts: ChartsBundle }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card/90 to-card/40 p-4 shadow-inner ring-1 ring-white/5 xl:col-span-2">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Webhooks</p>
-        <p className="mb-3 text-lg font-semibold text-foreground">Callback performance (avg latency)</p>
+      <div className="rounded-xl border border-border bg-card p-4 xl:col-span-2">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Webhooks</p>
+        <p className="mb-3 text-sm font-medium text-foreground">Callback performance (avg latency)</p>
         <div className="h-[280px] w-full min-w-0">
           {charts.webhookPerf.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted">No callback URLs in this range.</p>
+            <p className="py-20 text-center text-sm text-muted-foreground">No callback URLs in this range.</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.webhookPerf} margin={{ top: 8, right: 16, left: 8, bottom: 48 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
-                <XAxis dataKey="callbackUrl" tick={{ fill: "#94a3b8", fontSize: 9 }} angle={-25} textAnchor="end" height={70} interval={0} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} width={44} />
+                <XAxis dataKey="callbackUrl" tick={{ fill: "var(--muted-foreground)", fontSize: 9 }} angle={-25} textAnchor="end" height={70} interval={0} />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={44} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",

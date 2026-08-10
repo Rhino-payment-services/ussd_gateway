@@ -1,4 +1,4 @@
-/** CON / END parsing (Africa's Talking style and variants). */
+/** CON / END parsing (DialForge style and variants). */
 
 export function isConResponse(body: string): boolean {
   return body.trimStart().toUpperCase().startsWith("CON ");

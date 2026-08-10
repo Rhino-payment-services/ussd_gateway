@@ -1,6 +1,6 @@
-# USSD Testing Gateway & Sandbox
+# DialForge
 
-This repo is a **telecom-style sandbox**: the simulator and API **forward** USSD-shaped requests to **your** HTTP callback (Africa's Talking style `CON` / `END` text). **Menu and business logic live only in your external backend**, not in this gateway.
+This repo is a **telecom-style sandbox**: the simulator and API **forward** USSD-shaped requests to **your** HTTP callback (DialForge-style `CON` / `END` text). **Menu and business logic live only in your external backend**, not in this gateway.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ README.md
 - `src/redis` – Redis client  
 - `src/db` – Prisma client  
 - `src/telecom` – CON/END parsing, payload building  
-- `src/adapters` – Provider-specific outbound shapes (Africa's Talking, MTN, Airtel, Nexen, Custom)  
+- `src/adapters` – Provider-specific outbound shapes (DialForge, MTN, Airtel, Nexen, Custom)  
 - `src/engine` – Optional **local** flow JSON interpreter (flow builder / templates only — not used for live simulate)  
 - `src/logger` – JSON structured logs  
 - `src/socket` – Socket.IO broadcast hub  
@@ -63,7 +63,7 @@ docker compose up -d postgres redis
 ```bash
 cd backend
 cp .env.example .env
-# ensure DATABASE_URL and REDIS_URL match your local/docker ports
+# DATABASE_URL uses host port 5433 (docker-compose maps 5433→5432) so local Postgres on 5432 is left alone
 npm install
 npx prisma db push
 npm run db:seed
@@ -105,7 +105,7 @@ Forwards a telecom-style payload to **your** callback.
   "serviceCode": "*182#",
   "text": "1*2",
   "callbackUrl": "https://your-server.com/ussd",
-  "provider": "AFRICASTALKING",
+  "provider": "DIALFORGE",
   "payloadMapping": { "phoneNumber": "msisdn" },
   "simulation": { "delayMs": 0, "retries": 0, "duplicate": false, "invalidInput": false }
 }

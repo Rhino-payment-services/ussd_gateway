@@ -2,6 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { api } from "../services/api";
 import { useAuthStore } from "../store/authStore";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Select } from "../components/ui/native-select";
+import { Panel, PanelBody, PanelHeader, PanelTitle } from "../components/ui/panel";
+import { PageHeader } from "../components/ui/page-header";
+import { Badge } from "../components/ui/badge";
+import { EmptyState } from "../components/ui/empty-state";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { cn } from "../lib/utils";
 
 type Inspector = {
   outgoingPayload: unknown;
@@ -33,7 +50,6 @@ function parseDisplay(raw: string) {
 
 type ProfileOpt = { id: string; name: string; slug: string };
 
-/** T9-style labels for a realistic dialer (Africa's Talking–style simulator). */
 const KEYPAD: { digit: string; letters: string }[] = [
   { digit: "1", letters: "" },
   { digit: "2", letters: "ABC" },
@@ -84,9 +100,7 @@ export function SimulatorPage() {
   const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID());
   const [phone, setPhone] = useState("256700000000");
   const [serviceCode, setServiceCode] = useState("*182#");
-  /** Cumulative `text` last acknowledged by the backend (Africa's Talking style segments joined by *). */
   const [path, setPath] = useState("");
-  /** Current entry buffer — not sent until Send/OK (real handset behavior). */
   const [draft, setDraft] = useState("");
   const [screenText, setScreenText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,14 +115,17 @@ export function SimulatorPage() {
   const [profiles, setProfiles] = useState<ProfileOpt[]>([]);
   const [profileId, setProfileId] = useState("");
 
-  const [provider, setProvider] = useState("AFRICASTALKING");
+  const [provider, setProvider] = useState("DIALFORGE");
   const [delayMs, setDelayMs] = useState(0);
   const [retries, setRetries] = useState(0);
   const [duplicate, setDuplicate] = useState(false);
   const [invalidInput, setInvalidInput] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showTargetDrawer, setShowTargetDrawer] = useState(false);
+  const [showSimKnobs, setShowSimKnobs] = useState(false);
+  const [expandedLog, setExpandedLog] = useState<number | null>(0);
 
-  const [logLines, setLogLines] = useState<{ ts: string; summary: string; detail: string }[]>([]);
-  /** False = lock / home screen; true = USSD session UI (after Connect). */
+  const [logLines, setLogLines] = useState<{ ts: string; summary: string; detail: string; ok: boolean }[]>([]);
   const [ussdActive, setUssdActive] = useState(false);
   const [clock, setClock] = useState(() => new Date());
 
@@ -131,6 +148,23 @@ export function SimulatorPage() {
   });
 
   const canInteract = ussdActive && !busy && !ended && ttlLeft > 0;
+
+  const providerLabel =
+    (
+      {
+        DIALFORGE: "DialForge",
+        MTN: "MTN",
+        AIRTEL: "Airtel",
+        NEXEN: "Nexen",
+        CUSTOM: "Custom",
+      } as Record<string, string>
+    )[provider] ?? provider;
+
+  const targetSummary =
+    targetMode === "profile"
+      ? profiles.find((p) => p.id === profileId)?.name ?? "Profile"
+      : callbackUrl.replace(/^https?:\/\//, "").slice(0, 36) +
+        (callbackUrl.replace(/^https?:\/\//, "").length > 36 ? "…" : "");
 
   useEffect(() => {
     if (!token) {
@@ -196,7 +230,7 @@ export function SimulatorPage() {
       setTtlLeft(180);
 
       const ins = data.inspector;
-      const summary = `${ins.success ? "OK" : "ERR"} ${ins.latencyMs}ms · ${ins.httpStatus ?? "—"} · ${ins.provider}`;
+      const summary = `${ins.success ? "OK" : "ERR"} · ${ins.latencyMs}ms · ${ins.httpStatus ?? "—"} · ${ins.provider}`;
       const detail = JSON.stringify(
         {
           callbackUrl: ins.callbackUrl,
@@ -209,8 +243,9 @@ export function SimulatorPage() {
         2,
       );
       setLogLines((prev) =>
-        [{ ts: new Date().toISOString(), summary, detail }, ...prev].slice(0, 40),
+        [{ ts: new Date().toISOString(), summary, detail, ok: ins.success }, ...prev].slice(0, 40),
       );
+      setExpandedLog(0);
       return true;
     } catch (e) {
       if (isAxiosError(e)) {
@@ -224,14 +259,12 @@ export function SimulatorPage() {
     }
   };
 
-  /** Undo last committed segment (re-syncs with backend). */
   const popCommittedAndRedial = async () => {
     if (!ussdActive || !canInteract) return;
     const parts = path.split("*").filter(Boolean);
     if (parts.length === 0) return;
     parts.pop();
-    const nextPath = parts.join("*");
-    await dial(nextPath);
+    await dial(parts.join("*"));
   };
 
   useEffect(() => {
@@ -282,7 +315,6 @@ export function SimulatorPage() {
     setDraft("");
   };
 
-  /** Commit draft as the next USSD segment (Send / OK). */
   const sendOk = async () => {
     if (!ussdActive || !canInteract) return;
     const segment = draft.trim();
@@ -290,199 +322,222 @@ export function SimulatorPage() {
       setError("Type your choice or amount in the field, then press Send.");
       return;
     }
-    const nextText = path ? `${path}*${segment}` : segment;
-    await dial(nextText);
+    await dial(path ? `${path}*${segment}` : segment);
   };
 
-  /** Leave USSD and return to the home screen (inspector log kept). */
-  const cancelSession = () => {
-    goHome();
-  };
+  const cancelSession = () => goHome();
 
   const reset = () => {
     goHome();
     setLogLines([]);
   };
 
-  const applyAndReconnect = () => {
+  const applyAndClose = () => {
     goHome();
+    setShowTargetDrawer(false);
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">USSD Simulator</h1>
-        <p className="text-sm text-muted">
-          Traffic is forwarded to <strong>your</strong> callback URL (Africa&apos;s Talking style{" "}
-          <code className="rounded bg-card px-1">CON</code> / <code className="rounded bg-card px-1">END</code>).
-          This gateway does not host your menu logic.
-        </p>
-        <p className="text-sm text-muted">
-          The handset starts on a <strong className="text-foreground">normal home screen</strong> (clock &amp;
-          wallpaper). Tap <strong className="text-foreground">Open USSD</strong> to connect—nothing hits your
-          callback until then. In USSD, type in the field or keypad; only the <strong className="text-foreground">green
-          send</strong> key submits. <strong>Back</strong> removes the last confirmed step. <strong>Delete</strong> /{" "}
-          <strong>Clear</strong> edit the draft. On <code className="rounded bg-card px-1">END</code>, tap{" "}
-          <strong className="text-foreground">OK</strong> or <strong>Cancel</strong> to return home.{" "}
-          <strong>Reset</strong> clears logs. <strong>Apply &amp; reconnect</strong> sends the handset home so you can
-          connect again with new settings.
-        </p>
+    <div className="space-y-4">
+      <PageHeader
+        title="Simulator"
+        description="Forward USSD traffic to your callback. Responses must start with CON or END."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setShowTargetDrawer(true)}>
+              Configure target
+            </Button>
+            <Button variant="ghost" size="sm" type="button" onClick={() => setShowHelp((v) => !v)}>
+              {showHelp ? "Hide help" : "How it works"}
+            </Button>
+          </div>
+        }
+      />
+
+      {showHelp ? (
+        <Panel>
+          <PanelBody className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Use Configure target to set a callback URL (or saved profile), then open USSD on the handset. Only
+              the green Send key submits input. Back removes the last confirmed step.
+            </p>
+            <p>
+              Your backend must return plain text starting with <code className="text-foreground">CON </code> or{" "}
+              <code className="text-foreground">END </code>.
+            </p>
+          </PanelBody>
+        </Panel>
+      ) : null}
+
+      {/* Status strip */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+        <span>
+          Handset{" "}
+          <Badge variant={ussdActive ? "accent" : "default"} className="ml-1">
+            {ussdActive ? "USSD" : "Home"}
+          </Badge>
+        </span>
+        <button
+          type="button"
+          className="max-w-[min(100%,280px)] truncate text-left hover:text-foreground"
+          title={targetMode === "inline" ? callbackUrl : targetSummary}
+          onClick={() => setShowTargetDrawer(true)}
+        >
+          Target <span className="text-foreground">{providerLabel}</span>
+          <span className="mx-1 text-border">·</span>
+          <code className="text-foreground">{targetSummary}</code>
+        </button>
+        <span>
+          Path <code className="text-foreground">{path || "∅"}</code>
+        </span>
+        <span>TTL {ussdActive ? `${ttlLeft}s` : "—"}</span>
+        <span className="truncate font-mono text-[10px]" title={sessionId}>
+          {sessionId.slice(0, 8)}…
+        </span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-4 rounded-2xl border border-border bg-card/40 p-4">
-          <h2 className="text-sm font-semibold uppercase text-muted">Telecom target</h2>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="tm"
-                checked={targetMode === "inline"}
-                onChange={() => setTargetMode("inline")}
-              />
-              Callback URL
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="tm"
-                checked={targetMode === "profile"}
-                onChange={() => setTargetMode("profile")}
-                disabled={!token}
-              />
-              Saved profile {token ? "" : "(login)"}
-            </label>
-          </div>
-          {targetMode === "inline" ? (
-            <label className="block text-sm">
-              <span className="text-muted">Callback URL</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs"
-                value={callbackUrl}
-                onChange={(e) => setCallbackUrl(e.target.value)}
-              />
-            </label>
-          ) : (
-            <label className="block text-sm">
-              <span className="text-muted">Profile</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                value={profileId}
-                onChange={(e) => setProfileId(e.target.value)}
+      <Sheet open={showTargetDrawer} onOpenChange={setShowTargetDrawer}>
+        <SheetContent side="left" className="w-full gap-0 overflow-y-auto sm:max-w-md">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>Target</SheetTitle>
+            <SheetDescription>
+              Callback, provider, and handset identity used for simulated USSD traffic.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-4 p-4">
+            <div className="flex gap-2 text-xs">
+              <button
+                type="button"
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 font-medium transition",
+                  targetMode === "inline"
+                    ? "bg-sidebar-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setTargetMode("inline")}
               >
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.slug})
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="block text-sm">
-            <span className="text-muted">Provider format</span>
-            <select
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-            >
-              <option value="AFRICASTALKING">Africa&apos;s Talking</option>
-              <option value="MTN">MTN</option>
-              <option value="AIRTEL">Airtel</option>
-              <option value="NEXEN">Nexen</option>
-              <option value="CUSTOM">Custom</option>
-            </select>
-          </label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="text-muted">Phone</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-muted">Service code</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
-                value={serviceCode}
-                onChange={(e) => setServiceCode(e.target.value)}
-              />
-            </label>
-          </div>
-          <div className="rounded-lg border border-border bg-background/50 p-3 text-xs text-muted">
-            <p className="font-medium text-foreground">Simulation</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label>
-                Delay (ms)
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded border border-border bg-card px-2 py-1"
-                  value={delayMs}
-                  onChange={(e) => setDelayMs(Number(e.target.value))}
-                  min={0}
-                />
-              </label>
-              <label>
-                Retries
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded border border-border bg-card px-2 py-1"
-                  value={retries}
-                  onChange={(e) => setRetries(Number(e.target.value))}
-                  min={0}
-                  max={10}
-                />
-              </label>
+                Callback URL
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 font-medium transition disabled:opacity-40",
+                  targetMode === "profile"
+                    ? "bg-sidebar-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setTargetMode("profile")}
+                disabled={!token}
+              >
+                Profile
+              </button>
             </div>
-            <label className="mt-2 flex items-center gap-2">
-              <input type="checkbox" checked={duplicate} onChange={(e) => setDuplicate(e.target.checked)} />
-              Duplicate request (second round-trip)
-            </label>
-            <label className="mt-1 flex items-center gap-2">
-              <input type="checkbox" checked={invalidInput} onChange={(e) => setInvalidInput(e.target.checked)} />
-              Invalid input path (append invalid segment)
-            </label>
-          </div>
-          <div className="flex flex-wrap gap-2">
+
+            {targetMode === "inline" ? (
+              <div>
+                <Label>Callback URL</Label>
+                <Input
+                  className="font-mono text-xs"
+                  value={callbackUrl}
+                  onChange={(e) => setCallbackUrl(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Profile</Label>
+                <Select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.slug})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+
+            <div>
+              <Label>Provider</Label>
+              <Select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                <option value="DIALFORGE">DialForge</option>
+                <option value="MTN">MTN</option>
+                <option value="AIRTEL">Airtel</option>
+                <option value="NEXEN">Nexen</option>
+                <option value="CUSTOM">Custom</option>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Phone</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div>
+                <Label>Service code</Label>
+                <Input value={serviceCode} onChange={(e) => setServiceCode(e.target.value)} />
+              </div>
+            </div>
+
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void applyAndReconnect()}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setShowSimKnobs((v) => !v)}
             >
-              Apply &amp; reconnect
+              {showSimKnobs ? "Hide simulation options" : "Simulation options"}
             </button>
-            <span className="self-center text-xs text-muted">
-              Returns handset to home—tap <strong className="text-foreground">Open USSD</strong> to start with new
-              settings
-            </span>
-          </div>
-          <div className="rounded-xl border border-border bg-background/60 p-3 text-sm text-muted">
-            <div>
-              <span className="font-medium text-foreground">Session</span>{" "}
-              <code className="break-all">{sessionId}</code>
-            </div>
-            <div className="mt-2">
-              <span className="font-medium text-foreground">Handset</span>{" "}
-              <span className="text-foreground">{ussdActive ? "USSD session" : "Home"}</span>
-            </div>
-            <div className="mt-2">
-              <span className="font-medium text-foreground">Sent path</span> <code>{path || "∅"}</code>
-            </div>
-            <div className="mt-2">
-              Timeout{" "}
-              <span className="text-foreground">{ussdActive ? `${ttlLeft}s` : "— (not in USSD)"}</span>
-            </div>
-          </div>
-        </section>
 
-        <section className="mx-auto w-full max-w-[320px]">
-          <p className="mb-3 text-center text-xs text-muted">Handset preview (Africa&apos;s Talking–style layout)</p>
-          {/* Device chassis */}
+            {showSimKnobs ? (
+              <div className="space-y-2 rounded-lg border border-border-subtle bg-background/50 p-3 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Delay (ms)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={delayMs}
+                      onChange={(e) => setDelayMs(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Retries</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={retries}
+                      onChange={(e) => setRetries(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  <input type="checkbox" checked={duplicate} onChange={(e) => setDuplicate(e.target.checked)} />
+                  Duplicate request
+                </label>
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={invalidInput}
+                    onChange={(e) => setInvalidInput(e.target.checked)}
+                  />
+                  Invalid input path
+                </label>
+              </div>
+            ) : null}
+          </div>
+
+          <SheetFooter className="border-t border-border">
+            <Button type="button" variant="secondary" className="w-full" disabled={busy} onClick={applyAndClose}>
+              Apply &amp; reconnect
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(320px,380px)_1fr]">
+        {/* Handset */}
+        <div className="mx-auto w-full max-w-[360px] xl:mx-0">
           <div className="rounded-[2.75rem] bg-gradient-to-b from-zinc-800 via-zinc-950 to-black p-[10px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] ring-1 ring-zinc-700/80">
             <div className="overflow-hidden rounded-[2.35rem] bg-zinc-950 ring-1 ring-black/60">
-              {/* Punch-hole + status */}
               <div className="relative flex h-7 items-center justify-center bg-zinc-950">
                 <div className="absolute left-5 top-2 text-[10px] font-medium tabular-nums tracking-wide text-zinc-400">
                   {statusTime}
@@ -494,26 +549,23 @@ export function SimulatorPage() {
               </div>
               <div className="flex items-center justify-between bg-zinc-900 px-4 py-1.5 text-[11px] text-zinc-300">
                 <span className="truncate font-medium text-zinc-100">
-                  {ussdActive ? "USSD Gateway" : "Home"}
+                  {ussdActive ? "DialForge" : "Home"}
                 </span>
                 <span className="shrink-0 text-zinc-500">{ussdActive ? "VoLTE" : "Wi‑Fi"}</span>
               </div>
-              <div className="relative flex min-h-[420px] flex-col bg-[#3d4046]">
+              <div className="relative flex min-h-[360px] flex-col bg-[#3d4046]">
                 {!ussdActive ? (
                   <>
                     <div className="relative flex flex-1 flex-col overflow-hidden">
                       <div
-                        className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(56,189,248,0.22),transparent_55%),radial-gradient(ellipse_at_80%_70%,rgba(167,139,250,0.18),transparent_50%),linear-gradient(165deg,#1e293b_0%,#0f172a_45%,#020617_100%)]"
+                        className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(56,189,248,0.22),transparent_55%),radial-gradient(ellipse_at_80%_70%,rgba(34,197,94,0.12),transparent_50%),linear-gradient(165deg,#1e293b_0%,#0f172a_45%,#020617_100%)]"
                         aria-hidden
                       />
-                      <div className="relative flex flex-1 flex-col items-center justify-center px-6 pb-6 pt-4 text-center">
+                      <div className="relative flex flex-1 flex-col items-center justify-center px-6 pb-4 pt-3 text-center">
                         <p className="text-[3.25rem] font-extralight leading-none tracking-tight text-white tabular-nums drop-shadow-sm sm:text-6xl">
                           {homeClockLarge}
                         </p>
                         <p className="mt-3 text-sm font-medium text-white/75">{homeDateLine}</p>
-                        <p className="mt-10 max-w-[14rem] text-xs leading-relaxed text-white/45">
-                          USSD stays off until you connect—like opening the dialer on a real phone.
-                        </p>
                         <button
                           type="button"
                           disabled={busy}
@@ -522,11 +574,11 @@ export function SimulatorPage() {
                         >
                           {busy ? "Connecting…" : "Open USSD"}
                         </button>
-                        {error && (
+                        {error ? (
                           <p className="mt-4 max-w-[240px] text-xs font-medium text-red-300" role="alert">
                             {error}
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-auto flex justify-center pb-2 pt-1">
@@ -535,14 +587,14 @@ export function SimulatorPage() {
                   </>
                 ) : (
                   <>
-                    <div className="flex flex-1 flex-col items-center justify-center px-3 pb-2 pt-4">
-                      <div className="relative w-full max-w-[260px] rounded-xl bg-white p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/5">
-                        {error && (
+                    <div className="flex flex-1 flex-col items-center justify-center px-3 pb-1 pt-2">
+                      <div className="relative w-full max-w-[300px] rounded-xl bg-white p-3 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/5">
+                        {error ? (
                           <p className="mb-2 text-xs font-medium text-red-600" role="alert">
                             {error}
                           </p>
-                        )}
-                        <div className="min-h-[72px] text-left text-[15px] leading-snug text-zinc-900">
+                        ) : null}
+                        <div className="min-h-[56px] text-left text-[15px] leading-snug text-zinc-900">
                           {screenText ? (
                             <p className="whitespace-pre-wrap font-sans">{screenText}</p>
                           ) : busy ? (
@@ -551,10 +603,10 @@ export function SimulatorPage() {
                             <p className="text-zinc-500">Waiting for response…</p>
                           )}
                         </div>
-                        {!ended && (
-                          <div className="mt-3 border-t border-zinc-200 pt-3">
+                        {!ended ? (
+                          <div className="mt-2 border-t border-zinc-200 pt-2">
                             <label className="sr-only" htmlFor="ussd-draft">
-                              USSD input — press the green send key when ready
+                              USSD input
                             </label>
                             <input
                               id="ussd-draft"
@@ -565,14 +617,14 @@ export function SimulatorPage() {
                               autoCorrect="off"
                               spellCheck={false}
                               disabled={!canInteract}
-                              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 font-mono text-[15px] text-zinc-900 outline-none ring-2 ring-transparent placeholder:text-zinc-400 focus:border-orange-400/60 focus:ring-orange-400/25 disabled:opacity-50"
+                              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[15px] text-zinc-900 outline-none ring-2 ring-transparent placeholder:text-zinc-400 focus:border-orange-400/60 focus:ring-orange-400/25 disabled:opacity-50"
                               placeholder="Amount, PIN, choice…"
                               value={draft}
                               onChange={(e) => canInteract && setDraft(e.target.value)}
                             />
                           </div>
-                        )}
-                        {ended && (
+                        ) : null}
+                        {ended ? (
                           <div className="mt-4 flex justify-end border-t border-zinc-100 pt-3">
                             <button
                               type="button"
@@ -583,8 +635,8 @@ export function SimulatorPage() {
                               OK
                             </button>
                           </div>
-                        )}
-                        {busy && (
+                        ) : null}
+                        {busy ? (
                           <div
                             className="pointer-events-none absolute inset-0 flex items-end justify-center rounded-xl bg-white/55 pb-3"
                             aria-live="polite"
@@ -597,22 +649,22 @@ export function SimulatorPage() {
                               Waiting for callback…
                             </span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
-                    {!ended && (
+                    {!ended ? (
                       <>
                         <div className="px-3 pb-1">
-                          <div className="mx-auto grid max-w-[280px] grid-cols-3 gap-x-2 gap-y-2">
+                          <div className="mx-auto grid max-w-[320px] grid-cols-3 gap-x-2 gap-y-1.5">
                             {KEYPAD.map(({ digit, letters }) => (
                               <button
                                 key={digit}
                                 type="button"
                                 disabled={!canInteract}
                                 onClick={() => appendKey(digit)}
-                                className="flex h-[52px] flex-col items-center justify-center rounded-full bg-zinc-800/95 text-white shadow-inner shadow-black/20 ring-1 ring-white/5 transition hover:bg-zinc-700 active:scale-95 disabled:opacity-35"
+                                className="flex h-[46px] flex-col items-center justify-center rounded-full bg-zinc-800/95 text-white shadow-inner shadow-black/20 ring-1 ring-white/5 transition hover:bg-zinc-700 active:scale-95 disabled:opacity-35"
                               >
-                                <span className="text-[22px] font-light leading-none">{digit}</span>
+                                <span className="text-[20px] font-light leading-none">{digit}</span>
                                 {letters ? (
                                   <span className="mt-0.5 text-[8px] font-medium tracking-[0.12em] text-zinc-400">
                                     {letters}
@@ -624,7 +676,7 @@ export function SimulatorPage() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex items-center justify-center gap-6 px-4 pb-2 pt-1">
+                        <div className="flex items-center justify-center gap-6 px-4 pb-1 pt-0.5">
                           <button
                             type="button"
                             disabled={busy}
@@ -638,7 +690,7 @@ export function SimulatorPage() {
                             disabled={!canInteract || busy}
                             onClick={() => void sendOk()}
                             title="Send / OK"
-                            className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 ring-2 ring-emerald-400/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-40"
+                            className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 ring-2 ring-emerald-400/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-40"
                             aria-label={busy ? "Sending" : "Send"}
                           >
                             {busy ? (
@@ -649,12 +701,12 @@ export function SimulatorPage() {
                           </button>
                           <span className="w-10" aria-hidden />
                         </div>
-                        <div className="mx-auto flex w-full max-w-[300px] items-stretch gap-3 px-5 pb-4 pt-1 sm:px-8">
+                        <div className="mx-auto flex w-full max-w-[340px] items-stretch gap-3 px-5 pb-3 pt-0.5 sm:px-8">
                           <button
                             type="button"
                             disabled={!canInteract}
                             onClick={deleteLastChar}
-                            className="min-h-[52px] flex-1 rounded-2xl bg-zinc-800/90 py-3.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35"
+                            className="min-h-[42px] flex-1 rounded-2xl bg-zinc-800/90 py-2.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35"
                           >
                             Delete
                           </button>
@@ -662,7 +714,7 @@ export function SimulatorPage() {
                             type="button"
                             disabled={!canInteract}
                             onClick={clearDraft}
-                            className="min-h-[52px] flex-1 rounded-2xl bg-zinc-800/90 py-3.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35"
+                            className="min-h-[42px] flex-1 rounded-2xl bg-zinc-800/90 py-2.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35"
                           >
                             Clear
                           </button>
@@ -670,13 +722,13 @@ export function SimulatorPage() {
                             type="button"
                             disabled={!canInteract || (!path && !draft)}
                             onClick={() => void popCommittedAndRedial()}
-                            className="min-h-[52px] flex-1 rounded-2xl bg-zinc-800/90 py-3.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35 disabled:text-zinc-500"
+                            className="min-h-[42px] flex-1 rounded-2xl bg-zinc-800/90 py-2.5 text-sm font-semibold text-zinc-100 shadow-inner shadow-black/25 ring-1 ring-white/10 transition hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-35 disabled:text-zinc-500"
                           >
                             Back
                           </button>
                         </div>
                       </>
-                    )}
+                    ) : null}
                     <div className="mt-auto flex justify-center pb-2 pt-1">
                       <div className="h-1 w-28 rounded-full bg-zinc-700/90" aria-hidden />
                     </div>
@@ -685,30 +737,52 @@ export function SimulatorPage() {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className="mt-3 w-full rounded-xl border border-border bg-card/60 py-2 text-xs text-muted hover:bg-card"
-            disabled={busy}
-            onClick={reset}
-          >
-            Reset session &amp; clear inspector log
-          </button>
-        </section>
-      </div>
+          <Button variant="outline" className="mt-3 w-full" size="sm" disabled={busy} onClick={reset} type="button">
+            Reset session &amp; clear log
+          </Button>
+        </div>
 
-      <section className="rounded-2xl border border-border bg-card/40 p-4">
-        <h2 className="text-sm font-semibold uppercase text-muted">Request inspector</h2>
-        <ul className="mt-3 max-h-80 space-y-2 overflow-auto text-xs">
-          {logLines.map((row, i) => (
-            <li key={`${row.ts}-${i}`} className="rounded-lg border border-border bg-background/60 p-2">
-              <div className="text-muted">{row.ts}</div>
-              <div className="font-medium text-foreground">{row.summary}</div>
-              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap">{row.detail}</pre>
-            </li>
-          ))}
-          {logLines.length === 0 && <li className="text-muted">No requests yet.</li>}
-        </ul>
-      </section>
+        {/* Inspector */}
+        <Panel className="flex max-h-[720px] min-h-[280px] flex-col xl:min-h-0">
+          <PanelHeader>
+            <PanelTitle>Inspector</PanelTitle>
+            <span className="text-[10px] text-muted-foreground">{logLines.length} requests</span>
+          </PanelHeader>
+          <PanelBody className="flex-1 space-y-1 overflow-y-auto p-2">
+            {logLines.length === 0 ? (
+              <EmptyState
+                title="No requests yet"
+                description="Open USSD on the handset to see outbound payloads and responses."
+                className="border-0 py-10"
+              />
+            ) : (
+              logLines.map((row, i) => (
+                <div key={`${row.ts}-${i}`} className="rounded-lg border border-border-subtle">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-sidebar-accent/40"
+                    onClick={() => setExpandedLog(expandedLog === i ? null : i)}
+                  >
+                    <span className="min-w-0 truncate">
+                      <Badge variant={row.ok ? "success" : "danger"} className="mr-2">
+                        {row.ok ? "OK" : "ERR"}
+                      </Badge>
+                      <span className="text-muted-foreground">{row.ts.slice(11, 19)}</span>
+                      <span className="ml-2 text-foreground">{row.summary.replace(/^(OK|ERR)\s*·\s*/, "")}</span>
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">{expandedLog === i ? "−" : "+"}</span>
+                  </button>
+                  {expandedLog === i ? (
+                    <pre className="max-h-56 overflow-auto border-t border-border-subtle bg-background/60 p-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                      {row.detail}
+                    </pre>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </PanelBody>
+        </Panel>
+      </div>
     </div>
   );
 }

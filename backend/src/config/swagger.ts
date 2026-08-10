@@ -4,10 +4,10 @@ import swaggerUi from "swagger-ui-express";
 export const openApiSpec = {
   openapi: "3.0.0",
   info: {
-    title: "USSD Testing Gateway & Sandbox",
+    title: "DialForge",
     version: "2.0.0",
     description:
-      "Telecom-style sandbox: forwards simulated USSD traffic to developer callback URLs. No hosted business logic — external backends own menus.",
+      "DialForge USSD sandbox: forwards simulated USSD traffic to developer callback URLs. No hosted business logic — external backends own menus.",
   },
   servers: [{ url: "/" }],
   paths: {
@@ -95,7 +95,7 @@ export const openApiSpec = {
                   httpMethod: { type: "string", enum: ["GET", "POST", "PUT", "PATCH"] },
                   headers: { type: "object", additionalProperties: { type: "string" } },
                   authToken: { type: "string" },
-                  provider: { type: "string", enum: ["AFRICASTALKING", "MTN", "AIRTEL", "NEXEN", "CUSTOM"] },
+                  provider: { type: "string", enum: ["DIALFORGE", "MTN", "AIRTEL", "NEXEN", "CUSTOM"] },
                   payloadMapping: { type: "object", additionalProperties: { type: "string" } },
                   responseType: { type: "string", enum: ["plain", "json"] },
                   responseJsonPath: { type: "string" },

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
+import { PageHeader } from "../../components/ui/page-header";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Select } from "../../components/ui/native-select";
+import { Panel, PanelBody, PanelHeader, PanelTitle } from "../../components/ui/panel";
+import { EmptyState } from "../../components/ui/empty-state";
+import { Badge } from "../../components/ui/badge";
 
 type Profile = {
   id: string;
@@ -16,8 +24,9 @@ export function ProfilesPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [callbackUrl, setCallbackUrl] = useState("https://");
-  const [provider, setProvider] = useState("AFRICASTALKING");
+  const [provider, setProvider] = useState("DIALFORGE");
   const [msg, setMsg] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = async () => {
     const { data } = await api.get<{ profiles: Profile[] }>("/api/profiles");
@@ -45,6 +54,7 @@ export function ProfilesPage() {
     setSlug("");
     setCallbackUrl("https://");
     setMsg("Profile created");
+    setShowForm(false);
     await load();
   };
 
@@ -54,79 +64,94 @@ export function ProfilesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Webhook profiles</h2>
-        <p className="text-sm text-muted">
-          Save multiple callback URLs (e.g. RukaPay, SACCO, wallet). Use <code className="rounded bg-card px-1">profileId</code>{" "}
-          in the simulator when logged in.
-        </p>
-      </div>
-      <ul className="space-y-2">
-        {profiles.map((p) => (
-          <li
-            key={p.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-          >
+    <div>
+      <PageHeader
+        title="Webhook profiles"
+        description="Saved callbacks for the simulator when logged in."
+        actions={
+          <Button size="sm" type="button" onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancel" : "New profile"}
+          </Button>
+        }
+      />
+
+      {showForm ? (
+        <Panel className="mb-6">
+          <PanelHeader>
+            <PanelTitle>New profile</PanelTitle>
+          </PanelHeader>
+          <PanelBody className="grid gap-3 sm:grid-cols-2">
             <div>
-              <div className="font-medium">{p.name}</div>
-              <div className="text-xs text-muted">
-                {p.slug} · {p.provider} · {p.httpMethod}
-              </div>
-              <div className="mt-1 break-all font-mono text-xs">{p.callbackUrl}</div>
+              <Label>Name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="RukaPay" />
             </div>
-            <button
-              type="button"
-              className="rounded-lg border border-border px-2 py-1 text-xs text-danger"
-              onClick={() => void remove(p.id)}
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="rounded-xl border border-border bg-card/60 p-4">
-        <h3 className="text-sm font-semibold">New profile</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <input
-            className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
-            placeholder="slug (my-app)"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-          />
-        </div>
-        <input
-          className="mt-2 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm"
-          placeholder="https://your-backend.com/ussd"
-          value={callbackUrl}
-          onChange={(e) => setCallbackUrl(e.target.value)}
+            <div>
+              <Label>Slug</Label>
+              <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="rukapay" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Callback URL</Label>
+              <Input
+                className="font-mono text-xs"
+                value={callbackUrl}
+                onChange={(e) => setCallbackUrl(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Provider</Label>
+              <Select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                <option value="DIALFORGE">DialForge</option>
+                <option value="MTN">MTN</option>
+                <option value="AIRTEL">Airtel</option>
+                <option value="NEXEN">Nexen</option>
+                <option value="CUSTOM">Custom</option>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                onClick={() => void create().catch(() => setMsg("Create failed (unique slug?)"))}
+              >
+                Create
+              </Button>
+            </div>
+            {msg ? <p className="text-sm text-primary sm:col-span-2">{msg}</p> : null}
+          </PanelBody>
+        </Panel>
+      ) : null}
+
+      {profiles.length === 0 ? (
+        <EmptyState
+          title="No profiles yet"
+          description="Create a webhook profile to reuse callbacks in the simulator."
+          action={
+            <Button size="sm" type="button" onClick={() => setShowForm(true)}>
+              New profile
+            </Button>
+          }
         />
-        <select
-          className="mt-2 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-        >
-          <option value="AFRICASTALKING">Africa&apos;s Talking</option>
-          <option value="MTN">MTN</option>
-          <option value="AIRTEL">Airtel</option>
-          <option value="NEXEN">Nexen</option>
-          <option value="CUSTOM">Custom</option>
-        </select>
-        <button
-          type="button"
-          className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground"
-          onClick={() => void create().catch(() => setMsg("Create failed (unique slug?)"))}
-        >
-          Create
-        </button>
-        {msg && <p className="mt-2 text-sm text-accent">{msg}</p>}
-      </div>
+      ) : (
+        <div className="space-y-2">
+          {profiles.map((p) => (
+            <Panel key={p.id}>
+              <PanelBody className="flex flex-wrap items-start justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{p.name}</span>
+                    <Badge>{p.provider}</Badge>
+                    <Badge>{p.httpMethod}</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{p.slug}</div>
+                  <div className="mt-1 break-all font-mono text-xs text-muted-foreground">{p.callbackUrl}</div>
+                </div>
+                <Button variant="destructive" size="sm" type="button" onClick={() => void remove(p.id)}>
+                  Delete
+                </Button>
+              </PanelBody>
+            </Panel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import { prisma } from "../db/prisma.js";
-import { STARTER_FLOW } from "../engine/ussdEngine.js";
+import { parseFlowJson, runEngine, STARTER_FLOW } from "../engine/ussdEngine.js";
 
 const flowBody = z.object({
   name: z.string().min(1).max(120),
@@ -14,10 +15,28 @@ const flowBody = z.object({
   isDefault: z.boolean().optional(),
 });
 
+const runBody = z.object({
+  sessionId: z.string().min(1).max(256).optional(),
+  text: z.string().max(182).optional().default(""),
+  flowId: z.string().min(1).optional(),
+  flowJson: z.unknown().optional(),
+});
+
 export async function listFlows(req: Request, res: Response) {
   const userId = req.user!.sub;
   const flows = await prisma.savedFlow.findMany({ where: { userId }, orderBy: { updatedAt: "desc" } });
   res.json({ flows });
+}
+
+export async function getFlow(req: Request, res: Response) {
+  const userId = req.user!.sub;
+  const id = z.string().min(1).parse(req.params.id);
+  const flow = await prisma.savedFlow.findFirst({ where: { id, userId } });
+  if (!flow) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ flow });
 }
 
 export async function getStarter(_req: Request, res: Response) {
@@ -71,4 +90,53 @@ export async function deleteFlow(req: Request, res: Response) {
   const id = z.string().min(1).parse(req.params.id);
   await prisma.savedFlow.deleteMany({ where: { id, userId } });
   res.status(204).send();
+}
+
+/** Run a saved or inline flow through the local USSD engine (no external callback). */
+export async function runFlow(req: Request, res: Response) {
+  const userId = req.user?.sub ?? null;
+  const body = runBody.parse(req.body);
+
+  let flowJson: unknown = body.flowJson;
+  if (body.flowId) {
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required to run a saved flow" });
+      return;
+    }
+    const saved = await prisma.savedFlow.findFirst({ where: { id: body.flowId, userId } });
+    if (!saved) {
+      res.status(404).json({ error: "Flow not found" });
+      return;
+    }
+    flowJson = saved.flowJson;
+  }
+  if (flowJson == null) {
+    res.status(400).json({ error: "Provide flowId or flowJson" });
+    return;
+  }
+
+  const flow = parseFlowJson(flowJson);
+  const sessionId = body.sessionId ?? randomUUID();
+  const result = runEngine(
+    flow,
+    {
+      sessionId,
+      phoneNumber: "0000000000",
+      serviceCode: "*000#",
+      currentStep: flow.rootId,
+      previousInputs: [],
+      menuHistory: [],
+      startedAt: new Date().toISOString(),
+      userId,
+    },
+    body.text ?? "",
+  );
+
+  res.json({
+    response: result.response,
+    ended: result.ended,
+    currentStep: result.currentStep,
+    sessionId,
+    source: "local-flow" as const,
+  });
 }

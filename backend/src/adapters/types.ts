@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const telecomProviderSchema = z.enum([
-  "AFRICASTALKING",
+  "DIALFORGE",
   "MTN",
   "AIRTEL",
   "NEXEN",
@@ -10,4 +10,4 @@ export const telecomProviderSchema = z.enum([
 
 export type TelecomProvider = z.infer<typeof telecomProviderSchema>;
 
-export const defaultProvider: TelecomProvider = "AFRICASTALKING";
+export const defaultProvider: TelecomProvider = "DIALFORGE";

@@ -49,8 +49,8 @@ model WebhookProfile {
   /// bearer | header
   authScheme         String   @default("bearer")
   authHeaderName     String   @default("Authorization")
-  /// AFRICASTALKING | MTN | AIRTEL | NEXEN | CUSTOM
-  provider           String   @default("AFRICASTALKING")
+  /// DIALFORGE | MTN | AIRTEL | NEXEN | CUSTOM
+  provider           String   @default("DIALFORGE")
   /// Map canonical field -> outbound field name, e.g. { "phoneNumber": "msisdn" }
   payloadMapping     Json     @default("{}")
   /// plain | json
@@ -78,7 +78,7 @@ model UssdRequestLog {
   phoneNumber       String
   serviceCode       String
   text              String   @default("")
-  provider          String   @default("AFRICASTALKING")
+  provider          String   @default("DIALFORGE")
   callbackUrl       String?
   response          String   @default("")
   source            String   @default("forward")

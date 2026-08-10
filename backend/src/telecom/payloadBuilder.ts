@@ -44,7 +44,7 @@ export function buildOutboundBody(provider: TelecomProvider, canonical: Canonica
       return { payload: m, meta: { channel: "USSD" } };
     }
     case "CUSTOM":
-    case "AFRICASTALKING":
+    case "DIALFORGE":
     default:
       return applyFieldMapping(canonical, mapping);
   }

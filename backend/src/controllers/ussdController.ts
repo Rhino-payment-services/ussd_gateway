@@ -3,7 +3,7 @@ import { simulateInboundSchema } from "../types/simulate.js";
 import { runSimulate } from "../services/simulateService.js";
 
 /**
- * Legacy Africa's Talking-style path. Forwards to the same simulate / forward engine.
+ * Legacy DialForge-style path. Forwards to the same simulate / forward engine.
  */
 export async function postUssd(req: Request, res: Response, next: NextFunction) {
   try {
