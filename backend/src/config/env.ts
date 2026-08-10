@@ -22,3 +22,11 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export const env: Env = envSchema.parse(process.env);
+
+/** Browser Origin has no trailing slash; normalize env entries for exact cors matching. */
+export function corsOrigins(raw: string = env.CORS_ORIGIN): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}

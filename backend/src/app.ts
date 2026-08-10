@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { env } from "./config/env.js";
+import { corsOrigins, env } from "./config/env.js";
 import { mountSwagger } from "./config/swagger.js";
 import { errorMiddleware } from "./middleware/errorMiddleware.js";
 import { authRouter } from "./routes/authRoutes.js";
@@ -15,7 +15,7 @@ export const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
   cors({
-    origin: env.CORS_ORIGIN.split(",").map((s) => s.trim()),
+    origin: corsOrigins(),
     credentials: true,
   }),
 );

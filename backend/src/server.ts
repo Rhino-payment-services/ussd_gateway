@@ -3,7 +3,7 @@ import { createServer } from "http";
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { app } from "./app.js";
-import { env } from "./config/env.js";
+import { corsOrigins, env } from "./config/env.js";
 import { attachIoInstance } from "./socket/ioHub.js";
 import { logger } from "./logger/logger.js";
 
@@ -11,7 +11,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: env.CORS_ORIGIN.split(",").map((s) => s.trim()),
+    origin: corsOrigins(),
     credentials: true,
   },
 });
