@@ -216,7 +216,7 @@ export function FlowBuilderPage() {
   const [busy, setBusy] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
 
-  const [previewSession, setPreviewSession] = useState(() => crypto.randomUUID());
+  const [previewSession, setPreviewSession] = useState<string>(() => crypto.randomUUID());
   const [previewPath, setPreviewPath] = useState("");
   const [previewDraft, setPreviewDraft] = useState("");
   const [previewScreen, setPreviewScreen] = useState("");
