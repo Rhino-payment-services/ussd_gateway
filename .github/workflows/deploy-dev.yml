@@ -1,0 +1,142 @@
+name: Deploy DEV (on-prem)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  # ─── 1. Build check (GitHub-hosted) ──────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
+
+  # ─── 2. Deploy (dev self-hosted runner) ──────────────────────────────────────
+  deploy:
+    name: Deploy
+    needs: build
+    # Requires custom label "ussd-gateway-dev" on the rhino-dev runner.
+    # Settings → Actions → Runners → Labels on the ussd_gateway repo.
+    runs-on: [self-hosted, ussd-gateway-dev]
+    permissions:
+      contents: read
+    concurrency:
+      group: ussd-gateway-dev-deploy
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy DEV
+        id: deploy
+        shell: bash
+        env:
+          APP_DIR: /home/rhino-dev/Documents/projects/ussd_gateway
+        run: |
+          echo "Runner diagnostics:"
+          echo "hostname=$(hostname)"
+          echo "whoami=$(whoami)"
+          echo "pwd=$(pwd)"
+          echo "commit=$(git rev-parse --short HEAD)"
+
+          export NVM_DIR="${HOME}/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+
+          if [ ! -d "$APP_DIR" ]; then
+            echo "::error::Expected deploy directory not found: $APP_DIR" >&2
+            exit 1
+          fi
+
+          # Preserve runtime secrets across sync
+          for ENV_FILE in "$APP_DIR/backend/.env" "$APP_DIR/frontend/.env"; do
+            if [ -f "$ENV_FILE" ]; then
+              BACKUP="/tmp/ussd_gw_$(basename $(dirname $ENV_FILE))_deploy.env"
+              cp "$ENV_FILE" "$BACKUP"
+              echo "Backed up $ENV_FILE"
+            fi
+          done
+
+          echo "Syncing checked-out tree → $APP_DIR"
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -rltD --delete \
+              --no-owner --no-group --no-perms \
+              --exclude '.git/' \
+              --exclude '.env' \
+              --exclude 'node_modules/' \
+              --exclude 'dist/' \
+              --exclude 'tmp/' \
+              ./ "$APP_DIR/"
+          else
+            find "$APP_DIR" -mindepth 1 -maxdepth 1 \
+              ! -name '.git' ! -name '.env' ! -name 'node_modules' ! -name 'dist' ! -name 'tmp' \
+              -exec rm -rf {} +
+            cp -a . "$APP_DIR/"
+            rm -rf "$APP_DIR/.git"
+          fi
+
+          # Restore .env files
+          for DIR in backend frontend; do
+            BACKUP="/tmp/ussd_gw_${DIR}_deploy.env"
+            if [ -f "$BACKUP" ]; then
+              mv "$BACKUP" "$APP_DIR/$DIR/.env"
+              echo "Restored $DIR/.env"
+            fi
+          done
+
+          cd "$APP_DIR/backend"
+          echo "Installing backend dependencies..."
+          npm ci
+
+          echo "Building backend..."
+          npm run build
+
+          echo "Restarting service via pm2..."
+          if pm2 describe ussd-gateway > /dev/null 2>&1; then
+            pm2 restart ussd-gateway
+          else
+            pm2 start dist/server.js --name ussd-gateway
+          fi
+          pm2 save
+
+          echo "Deploy complete"
+
+      - name: Dev smoke test
+        if: success()
+        shell: bash
+        env:
+          DEV_API_URL: ${{ vars.DEV_API_URL }}
+        run: |
+          BASE="${DEV_API_URL:-http://127.0.0.1:4000}"
+          BASE="${BASE%/}"
+
+          echo "Smoke testing at $BASE"
+          for i in 1 2 3; do
+            CODE="$(curl -o /dev/null -s -w '%{http_code}' --max-time 10 "$BASE" || echo 000)"
+            [ "$CODE" = "200" ] && break
+            echo "Attempt $i: HTTP $CODE — retrying in 5s..."
+            sleep 5
+          done
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::Dev health check failed (HTTP $CODE) — check service logs"
+            exit 0
+          fi
+          echo "Dev smoke finished (HTTP $CODE)"
